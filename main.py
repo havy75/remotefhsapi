@@ -26,7 +26,7 @@ async def home():
     return {'status': 'active', 'message': 'Server Remote api đang chạy!'}
 
 # Constants for target APIs
-TARGET_API_BASE = "https://tp75fhs.tphomelab.io.vn/"
+TARGET_API_BASE = "https://tp75fhs.tphomelab.io.vn"
 PERFORMANCE_API = f"{TARGET_API_BASE}/performance/batch"
 DORM_UTILITIES_API = f"{TARGET_API_BASE}/dorm-utilities/batch"
 
