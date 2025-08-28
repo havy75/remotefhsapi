@@ -1,14 +1,21 @@
-# Web Framework
+# Web framework
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 
 # HTTP client
 requests==2.31.0
-httpx==0.24.1   # nếu bạn cần async client
+httpx==0.24.1
 
 # Config & Env
 python-dotenv==1.0.0
 
-# Data validation & settings
+# Data validation
 pydantic==2.5.1
 pydantic-settings==2.0.3
+
+# Security & Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+cryptography==41.0.7
+
