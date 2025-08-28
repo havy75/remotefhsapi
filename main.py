@@ -22,6 +22,7 @@ app.add_middleware(
 )
 
 @app.get('/')  # Changed from @app.route to @app.get
+@app.head('/')  # Add support for HEAD requests
 async def home():
     return {'status': 'active', 'message': 'Server Remote api đang chạy!'}
 
