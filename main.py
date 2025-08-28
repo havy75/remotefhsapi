@@ -1,30 +1,16 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import requests
 import logging
 from typing import List, Dict, Any
-from models import Performance, DormUtility
 from datetime import date
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.get('/')  # Changed from @app.route to @app.get
-@app.head('/')  # Add support for HEAD requests
-async def home():
-    return {'status': 'active', 'message': 'Server Remote api đang chạy!'}
+app = Flask(__name__)
+CORS(app)
 
 # Constants for target APIs
 TARGET_API_BASE = "https://tp75fhs.tphomelab.io.vn"
@@ -62,67 +48,81 @@ def validate_data(items: list) -> bool:
         return False
     return all(item is not None for item in items)
 
-headers = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
-}
+@app.route('/', methods=['GET', 'HEAD'])
+def home():
+    return jsonify({'status': 'active', 'message': 'Server Remote api đang chạy!'})
 
-@app.post("/performance/batch", response_model=List[Performance])
-async def create_performances_batch(performances: List[Performance]):
+@app.route("/performance/batch", methods=['POST'])
+def create_performances_batch():
     try:
+        performances = request.get_json()
+        if not performances:
+            return jsonify({"detail": "No data provided"}), 422
+
         # Convert models to dict with proper date serialization
         data = []
         for perf in performances:
             try:
-                # Direct serialization of the performance object
-                item = clean_none_values(perf.dict())
+                item = clean_none_values(perf)
                 data.append(item)
             except Exception as e:
                 logger.error(f"Error processing performance data: {str(e)}")
-                raise ValueError(f"Data processing error: {str(e)}")
+                return jsonify({"detail": f"Data processing error: {str(e)}"}), 422
         
         logger.info(f"Sending data count: {len(data)}")
         
         response = requests.post(
             PERFORMANCE_API, 
-            json=data,  # data should now be JSON serializable
-            headers=headers,
+            json=data,
+            headers={'Content-Type': 'application/json'},
             timeout=30
         )
         
         logger.info(f"Response status: {response.status_code}")
-        logger.debug(f"Response text: {response.text}")
         
         if response.status_code == 200:
-            return response.json()
-        else:
-            error_detail = "Request failed"
-            try:
-                error_json = response.json()
-                if 'detail' in error_json:
-                    error_detail = error_json['detail']
-            except:
-                error_detail = response.text
-            raise HTTPException(
-                status_code=response.status_code, 
-                detail=f"API Error: {error_detail}"
-            )
+            return jsonify(response.json())
+        
+        return jsonify({"detail": f"API Error: {response.text}"}), response.status_code
             
     except Exception as e:
         logger.error(f"Error in create_performances_batch: {str(e)}")
-        raise HTTPException(
-            status_code=422, 
-            detail=f"Processing error: {str(e)}"
+        return jsonify({"detail": f"Processing error: {str(e)}"}), 422
+
+@app.route("/dorm-utilities/batch", methods=['POST'])
+def create_utilities_batch():
+    try:
+        utilities = request.get_json()
+        if not utilities:
+            return jsonify({"detail": "No data provided"}), 422
+
+        data = []
+        for util in utilities:
+            try:
+                item = clean_none_values(util)
+                data.append(item)
+            except Exception as e:
+                logger.error(f"Error processing utilities data: {str(e)}")
+                return jsonify({"detail": f"Data processing error: {str(e)}"}), 422
+
+        response = requests.post(
+            DORM_UTILITIES_API, 
+            json=data,
+            headers={'Content-Type': 'application/json'},
+            timeout=30
         )
 
-@app.post("/dorm-utilities/batch", response_model=List[DormUtility])
-async def create_utilities_batch(utilities: List[DormUtility]):
-    try:
-        # Validate input data
-        if not validate_data(utilities):
-            raise ValueError("Invalid or empty utilities data")
+        if response.status_code == 200:
+            return jsonify(response.json())
+            
+        return jsonify({"detail": response.text}), response.status_code
 
-        # Convert models to dict with proper date serialization
+    except Exception as e:
+        logger.error(f"Error: {str(e)}")
+        return jsonify({"detail": f"Processing error: {str(e)}"}), 422
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=3000)
         data = []
         for util in utilities:
             item = {}
