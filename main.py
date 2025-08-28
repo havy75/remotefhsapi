@@ -2,8 +2,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import requests
+import logging
 from models import Performance, DormUtility
 from datetime import date
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -26,11 +31,22 @@ PERFORMANCE_API = f"{TARGET_API_BASE}/performance/batch"
 DORM_UTILITIES_API = f"{TARGET_API_BASE}/dorm-utilities/batch"
 
 def serialize_data(obj):
+    if obj is None:
+        return None
     if isinstance(obj, date):
         return obj.isoformat()
     if hasattr(obj, 'dict'):
-        return obj.dict()
+        try:
+            return obj.dict()
+        except Exception as e:
+            logger.error(f"Serialization error: {str(e)}")
+            return str(obj)
     return obj
+
+def validate_data(items: list) -> bool:
+    if not items:
+        return False
+    return all(item is not None for item in items)
 
 headers = {
     'Content-Type': 'application/json',
@@ -40,13 +56,23 @@ headers = {
 @app.post("/performance/batch", response_model=List[Performance])
 async def create_performances_batch(performances: List[Performance]):
     try:
+        # Validate input data
+        if not validate_data(performances):
+            raise ValueError("Invalid or empty performance data")
+
         # Convert models to dict with proper date serialization
         data = []
         for perf in performances:
             item = {}
-            for k, v in perf.dict().items():
-                item[k] = serialize_data(v)
-            data.append(item)
+            try:
+                for k, v in perf.dict().items():
+                    item[k] = serialize_data(v)
+                data.append(item)
+            except Exception as e:
+                logger.error(f"Error processing performance data: {str(e)}")
+                raise ValueError(f"Data processing error: {str(e)}")
+        
+        logger.info(f"Sending performance data: {data}")
         
         response = requests.post(
             PERFORMANCE_API, 
@@ -77,13 +103,23 @@ async def create_performances_batch(performances: List[Performance]):
 @app.post("/dorm-utilities/batch", response_model=List[DormUtility])
 async def create_utilities_batch(utilities: List[DormUtility]):
     try:
+        # Validate input data
+        if not validate_data(utilities):
+            raise ValueError("Invalid or empty utilities data")
+
         # Convert models to dict with proper date serialization
         data = []
         for util in utilities:
             item = {}
-            for k, v in util.dict().items():
-                item[k] = serialize_data(v)
-            data.append(item)
+            try:
+                for k, v in util.dict().items():
+                    item[k] = serialize_data(v)
+                data.append(item)
+            except Exception as e:
+                logger.error(f"Error processing utilities data: {str(e)}")
+                raise ValueError(f"Data processing error: {str(e)}")
+        
+        logger.info(f"Sending utilities data: {data}")
         
         response = requests.post(
             DORM_UTILITIES_API, 
