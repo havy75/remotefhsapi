@@ -31,8 +31,16 @@ PERFORMANCE_API = f"{TARGET_API_BASE}/performance/batch"
 DORM_UTILITIES_API = f"{TARGET_API_BASE}/dorm-utilities/batch"
 
 def clean_none_values(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Remove None values from dictionary"""
-    return {k: ('' if v is None else v) for k, v in data.items()}
+    """Remove None values and handle date objects"""
+    cleaned = {}
+    for k, v in data.items():
+        if v is None:
+            cleaned[k] = ''
+        elif isinstance(v, date):
+            cleaned[k] = v.isoformat()
+        else:
+            cleaned[k] = v
+    return cleaned
 
 def serialize_data(obj):
     if obj is None:
@@ -41,7 +49,8 @@ def serialize_data(obj):
         return obj.isoformat()
     if hasattr(obj, 'dict'):
         try:
-            return clean_none_values(obj.dict())
+            data = obj.dict()
+            return clean_none_values(data)
         except Exception as e:
             logger.error(f"Serialization error: {str(e)}")
             return str(obj)
@@ -64,18 +73,18 @@ async def create_performances_batch(performances: List[Performance]):
         data = []
         for perf in performances:
             try:
+                # Direct serialization of the performance object
                 item = clean_none_values(perf.dict())
                 data.append(item)
             except Exception as e:
                 logger.error(f"Error processing performance data: {str(e)}")
                 raise ValueError(f"Data processing error: {str(e)}")
         
-        logger.info(f"Sending request to: {PERFORMANCE_API}")
-        logger.debug(f"Headers: {headers}")
+        logger.info(f"Sending data count: {len(data)}")
         
         response = requests.post(
             PERFORMANCE_API, 
-            json=data,
+            json=data,  # data should now be JSON serializable
             headers=headers,
             timeout=30
         )
